@@ -11,8 +11,7 @@ npm start        # real car: http://localhost:3100
 npm run mock     # simulated ECU, no car needed
 ```
 
-Set `PORT=...` to use a different port. (The default avoids 3000, which
-Docker Desktop often occupies.)
+Set `PORT=...` to use a different port.
 
 ## Usage
 
@@ -24,14 +23,8 @@ Docker Desktop often occupies.)
 3. Connect — the app sends the Consult init sequence (`FF FF EF`) and waits
    for the ECU's `0x10` ack, then reads the ECU part number.
 4. Live data: pick sensors and Start. Fault codes: Read / Clear.
-
-## I/M readiness (1996+ USDM cars)
-
-Consult I has no public command for SRT/readiness status, so the app reads it
-the way smog stations do: OBDII Mode 01 PID 01 via an ELM327 USB adapter on
-the 16-pin OBDII connector. Pick "OBDII (ELM327)" as the connection type,
-select the adapter's serial port, and use the readiness panel. Consult
-features (live data, faults, register scan) need the Consult connection type.
+5. Register scan: sweep the ECU's data registers to discover which addresses
+   respond on your car — useful for finding sensors not in the default map.
 
 ## Notes
 
