@@ -35,7 +35,7 @@
   #tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
   #tabs button {
     background: none; border: none; border-bottom: 2px solid transparent;
-    color: var(--muted); font-size: 14px; padding: 10px 16px; cursor: pointer;
+    border-radius: 0; color: var(--muted); font-size: 14px; padding: 10px 16px; cursor: pointer;
   }
   #tabs button:hover { color: var(--text); }
   #tabs button.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
@@ -53,19 +53,24 @@
   }
   .h2-actions button:hover { color: var(--text); }
   .h2-actions .sep { margin: 0 6px; }
-  .h2-actions .view-toggle {
-    display: inline-flex; margin-left: 14px; vertical-align: middle;
+  .view-toggle {
+    display: inline-flex; vertical-align: middle; margin-left: auto;
     border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
   }
-  .h2-actions .view-toggle button {
+  /* The toggle, gauges, and flag grid always render; before streaming they
+     show in a dimmed, inactive state. */
+  #tab-live:not(.streaming) .view-toggle,
+  #tab-live:not(.streaming) #gauges,
+  #tab-live:not(.streaming) #flags-grid { opacity: 0.5; }
+  .view-toggle button {
     display: inline-flex; align-items: center; justify-content: center;
     padding: 4px 8px; background: #262d36; color: var(--muted);
     text-decoration: none; border-radius: 0;
   }
-  .h2-actions .view-toggle button + button { border-left: 1px solid var(--border); }
-  .h2-actions .view-toggle button:hover { color: var(--text); }
-  .h2-actions .view-toggle button.active { background: var(--accent); color: #fff; }
-  .h2-actions .view-toggle svg { display: block; }
+  .view-toggle button + button { border-left: 1px solid var(--border); }
+  .view-toggle button:hover { color: var(--text); }
+  .view-toggle button.active { background: var(--accent); color: #fff; }
+  .view-toggle svg { display: block; }
   .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
   select, button {
     background: #262d36; color: var(--text); border: 1px solid var(--border);
@@ -140,6 +145,27 @@
   .flag-chip .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border); }
   .flag-chip.on { color: var(--text); border-color: var(--ok); }
   .flag-chip.on .dot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+  #stream-indicator {
+    position: fixed; bottom: 20px; right: 20px; z-index: 50;
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 14px; border-radius: 20px;
+    background: rgba(29,34,41,0.92); border: 1px solid var(--border);
+    backdrop-filter: blur(6px); font-size: 13px; color: var(--muted);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  }
+  #stream-indicator .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--muted); transition: background 0.2s, box-shadow 0.2s;
+  }
+  #stream-indicator.on { color: var(--text); }
+  #stream-indicator.on .dot {
+    background: var(--ok); box-shadow: 0 0 8px var(--ok);
+    animation: stream-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes stream-pulse {
+    0%, 100% { box-shadow: 0 0 5px var(--ok); }
+    50%      { box-shadow: 0 0 12px var(--ok); }
+  }
 </style>
 </head>
 <body>
@@ -159,6 +185,7 @@
     <button data-tab="tab-faults">Fault codes</button>
   </nav>
   <p id="msg" style="margin:0"></p>
+  <div id="stream-indicator"><span class="dot"></span><span class="label">Not streaming</span></div>
 
   <section class="panel" id="tab-connection">
     <h2>Connection</h2>
@@ -179,14 +206,6 @@
     <h2>Live data
       <span class="h2-actions">
         <button id="select-all">Select all</button><span class="sep">·</span><button id="clear-all">Clear all</button>
-        <span class="view-toggle" role="group" aria-label="Chart layout">
-          <button id="view-grid" class="active" aria-label="Grid view" aria-pressed="true" title="Grid view — compact sparklines">
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
-          </button>
-          <button id="view-row" aria-label="Row view" aria-pressed="false" title="Row view — full-width charts with axes, one signal per row">
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="3" rx="1"/><rect x="1" y="6.5" width="14" height="3" rx="1"/><rect x="1" y="11" width="14" height="3" rx="1"/></svg>
-          </button>
-        </span>
       </span>
     </h2>
     <div class="sensor-picker" id="sensor-picker"></div>
@@ -196,6 +215,14 @@
       <button id="start" class="primary" disabled>Start</button>
       <button id="stop" disabled>Stop</button>
       <span id="byte-budget"></span>
+      <span class="view-toggle" role="group" aria-label="Chart layout">
+        <button id="view-grid" class="active" aria-label="Grid view" aria-pressed="true" title="Grid view — compact sparklines">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        </button>
+        <button id="view-row" aria-label="Row view" aria-pressed="false" title="Row view — full-width charts with axes, one signal per row">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="2" width="14" height="3" rx="1"/><rect x="1" y="6.5" width="14" height="3" rx="1"/><rect x="1" y="11" width="14" height="3" rx="1"/></svg>
+        </button>
+      </span>
     </div>
     <div id="gauges"></div>
     <div id="flags-grid"></div>
@@ -266,6 +293,13 @@ const setMsg = (text, isError = false) => {
   $('msg').className = isError ? 'error' : '';
 };
 
+const setStreaming = (on) => {
+  const el = $('stream-indicator');
+  el.classList.toggle('on', on);
+  el.querySelector('.label').textContent = on ? 'Streaming' : 'Not streaming';
+  $('tab-live').classList.toggle('streaming', on);
+};
+
 let isMock = false;
 let connType = null;
 
@@ -321,16 +355,34 @@ async function loadSensors() {
     .join('');
 }
 
-function buildGauges(selected) {
-  history = {};
-  $('gauges').innerHTML = selected
-    .map((s) => `
-      <div class="gauge" id="gauge-${s.id}">
+// Reconcile the gauge grid to the currently-checked sensors. Decoupled from
+// streaming: a gauge appears as soon as its sensor is ticked and disappears
+// when unticked. Gauges that stay selected keep their chart history across
+// changes, so toggling one sensor doesn't wipe the others' traces.
+function syncGauges() {
+  const ids = [...document.querySelectorAll('#sensor-picker input:checked')].map((c) => c.value);
+  const selected = sensors.filter((s) => ids.includes(s.id));
+  const container = $('gauges');
+  // Drop gauges (and their history) for sensors no longer selected.
+  for (const el of [...container.children]) {
+    const id = el.id.replace('gauge-', '');
+    if (!ids.includes(id)) { el.remove(); delete history[id]; }
+  }
+  // Add/reorder so the DOM matches the sensor-list order.
+  selected.forEach((s, i) => {
+    let el = $('gauge-' + s.id);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'gauge';
+      el.id = 'gauge-' + s.id;
+      el.innerHTML = `
         <div class="name">${s.name}</div>
         <div class="value"><span id="val-${s.id}">–</span><small>${s.unit}</small></div>
-        <canvas id="spark-${s.id}" width="220" height="36"></canvas>
-      </div>`)
-    .join('');
+        <canvas id="spark-${s.id}" width="220" height="36"></canvas>`;
+    }
+    const ref = container.children[i];
+    if (ref !== el) container.insertBefore(el, ref || null);
+  });
 }
 
 // Theme colors, read once from the CSS custom properties so the charts match
@@ -451,15 +503,14 @@ function drawRowChart(ctx, data, w, h, sensor) {
   ctx.stroke();
 }
 
-function startStream() {
+// (Re)open the SSE connection for the current sensor/flag selection. The gauge
+// and flag views are already rendered by syncGauges/buildFlagGrid; this just
+// wires up the live data feed. Called on Start and again whenever the selection
+// changes mid-stream so newly-ticked sensors immediately receive data.
+function openStream() {
+  if (eventSource) { eventSource.close(); eventSource = null; }
   const ids = [...document.querySelectorAll('#sensor-picker input:checked')].map((c) => c.value);
   const flagRegs = selectedFlagRegs();
-  if (!ids.length && !flagRegs.length) return setMsg('Select at least one item', true);
-  if (selectedBytes() > MAX_STREAM_BYTES)
-    return setMsg(`Too much selected: the ECU streams at most ${MAX_STREAM_BYTES} bytes — deselect a few`, true);
-  const selected = sensors.filter((s) => ids.includes(s.id));
-  buildGauges(selected);
-  buildFlagGrid(flagRegs);
   const params = new URLSearchParams();
   if (ids.length) params.set('sensors', ids.join(','));
   if (flagRegs.length) params.set('flags', flagRegs.map((r) => r.toString(16)).join(','));
@@ -468,7 +519,9 @@ function startStream() {
     const { t, values, flags } = JSON.parse(e.data);
     const ts = t || Date.now();
     for (const [id, v] of Object.entries(values || {})) {
-      $('val-' + id).textContent = v;
+      const valEl = $('val-' + id);
+      if (!valEl) continue; // gauge may have just been deselected
+      valEl.textContent = v;
       (history[id] = history[id] || []).push({ t: ts, v });
       if (history[id].length > 120) history[id].shift();
       drawSpark(id);
@@ -477,17 +530,26 @@ function startStream() {
   };
   eventSource.addEventListener('error', (e) => {
     if (e.data) setMsg('Stream error: ' + JSON.parse(e.data).error, true);
-    else if (eventSource.readyState === EventSource.CLOSED) setMsg('Stream closed', true);
+    else if (eventSource.readyState === EventSource.CLOSED) { setMsg('Stream closed', true); setStreaming(false); }
   });
+}
+
+function startStream() {
+  const ids = [...document.querySelectorAll('#sensor-picker input:checked')].map((c) => c.value);
+  if (!ids.length && !selectedFlagRegs().length) return setMsg('Select at least one item', true);
+  if (selectedBytes() > MAX_STREAM_BYTES)
+    return setMsg(`Too much selected: the ECU streams at most ${MAX_STREAM_BYTES} bytes — deselect a few`, true);
+  openStream();
   $('start').disabled = true;
   $('stop').disabled = false;
-  setMsg('Streaming…');
+  setStreaming(true);
 }
 
 function stopStream() {
   if (eventSource) { eventSource.close(); eventSource = null; }
   $('start').disabled = connType !== 'consult';
   $('stop').disabled = true;
+  setStreaming(false);
 }
 
 let flagDefs = [];
@@ -635,10 +697,24 @@ $('disconnect').onclick = async () => {
   setMsg('Disconnected.');
 };
 
+// Single entry point for any change to the sensor/flag selection: keep the
+// byte budget current, re-render the gauge and flag views to match, and — if a
+// stream is already running — re-subscribe so newly-ticked items get live data
+// (or stop cleanly if the selection became empty / over budget).
+const onPickerChange = () => {
+  updateBudget();
+  syncGauges();
+  buildFlagGrid(selectedFlagRegs());
+  if (!eventSource) return;
+  const hasSel = document.querySelector('#sensor-picker input:checked') || selectedFlagRegs().length;
+  if (hasSel && selectedBytes() <= MAX_STREAM_BYTES) openStream();
+  else { stopStream(); setMsg('Stream stopped — selection is empty or over the byte budget.', true); }
+};
+
 const setAllSensors = (checked) => {
   document.querySelectorAll('#sensor-picker input, #flag-picker input')
     .forEach((c) => (c.checked = checked));
-  updateBudget();
+  onPickerChange();
 };
 
 // When a connected ECU has a saved profile, pre-select its monitor preset.
@@ -650,15 +726,15 @@ function applyProfile(profile) {
   const flagRegs = new Set((profile.flags || []).map(Number));
   document.querySelectorAll('#flag-picker input')
     .forEach((c) => (c.checked = flagRegs.has(+c.value)));
-  updateBudget();
+  onPickerChange();
   const nS = (profile.sensors || []).length;
   const nF = (profile.flags || []).length;
   setMsg(`Loaded preset for ${profile.name}: ${nS} sensors, ${nF} flag group${nF === 1 ? '' : 's'} selected.`);
 }
 $('select-all').onclick = () => setAllSensors(true);
 $('clear-all').onclick = () => setAllSensors(false);
-$('sensor-picker').addEventListener('change', updateBudget);
-$('flag-picker').addEventListener('change', updateBudget);
+$('sensor-picker').addEventListener('change', onPickerChange);
+$('flag-picker').addEventListener('change', onPickerChange);
 
 const redrawAll = () => { for (const id of Object.keys(history)) drawSpark(id); };
 
@@ -806,7 +882,7 @@ $('clear-faults').onclick = async () => {
 
 (async () => {
   await Promise.all([loadPorts(), loadSensors(), loadFlagDefs()]);
-  updateBudget();
+  onPickerChange();
   const status = await api('/api/status');
   isMock = status.mock;
   setConnected(status.connected, status.type);
