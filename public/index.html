@@ -85,7 +85,9 @@
     color: var(--muted); margin: 4px 0 8px; padding-top: 10px; border-top: 1px solid var(--border); }
   #flags-grid:not(:empty) { margin-top: 16px; }
   .sensor-picker label { font-size: 14px; color: var(--muted); cursor: pointer; user-select: none; }
+  .sensor-picker label:has(input:disabled) { opacity: 0.4; cursor: default; }
   .sensor-picker input { accent-color: var(--accent); margin-right: 5px; }
+  .sensor-picker input:disabled { cursor: default; }
   #gauges { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
   #gauges.rows { grid-template-columns: 1fr; }
   #gauges.rows .gauge { padding: 14px 16px; }
@@ -336,6 +338,16 @@ const updateBudget = () => {
   const n = selectedBytes();
   $('byte-budget').textContent = `${n}/${MAX_STREAM_BYTES} stream bytes`;
   $('byte-budget').className = n > MAX_STREAM_BYTES ? 'over' : '';
+  // Physically prevent ticking anything that wouldn't fit in the remaining
+  // budget, so the selection can never exceed what the ECU will stream.
+  // Already-checked boxes stay enabled so they can always be unticked.
+  document.querySelectorAll('#sensor-picker input').forEach((c) => {
+    const bytes = sensors.find((s) => s.id === c.value)?.bytes || 1;
+    c.disabled = !c.checked && n + bytes > MAX_STREAM_BYTES;
+  });
+  document.querySelectorAll('#flag-picker input').forEach((c) => {
+    c.disabled = !c.checked && n + 1 > MAX_STREAM_BYTES;
+  });
 };
 
 async function loadPorts() {

@@ -264,14 +264,22 @@ class ConsultClient extends EventEmitter {
   }
 
   async _streamLoop(frameLen, onFrame) {
+    // A single slow or truncated frame is normal right after (re)registration
+    // and during brief line hiccups, so don't tear the stream down on the first
+    // timeout. Only surface an error once the line has stayed silent across
+    // several consecutive reads (~real disconnect), retrying transient gaps.
+    const MAX_MISSES = 4;
+    let misses = 0;
     try {
       while (this.streaming && this.connected) {
         let frame;
         try {
           frame = await this._readFrame(2000);
+          misses = 0;
         } catch (err) {
-          if (this.streaming) this.emit('streamError', err);
-          return;
+          if (!this.streaming) return;
+          if (++misses >= MAX_MISSES) { this.emit('streamError', err); return; }
+          continue;
         }
         if (this.streaming && frame.length >= frameLen) {
           onFrame(frame.subarray(0, frameLen));
