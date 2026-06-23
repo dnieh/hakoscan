@@ -7,11 +7,29 @@ A local web dashboard for the Nissan Consult I diagnostic port (the grey
 
 ```sh
 npm install
+npm run build    # build the React frontend into dist/
 npm start        # real car: http://localhost:3100
 npm run mock     # simulated ECU, no car needed
 ```
 
 Set `PORT=...` to use a different port.
+
+## Frontend
+
+The UI is a React + Vite + shadcn/ui app in `client/`, served as a static build
+from `dist/` by `server.js`. The Express serial/SSE backend is the source of
+truth and is unchanged by the frontend.
+
+For UI development, run the backend and the Vite dev server (with hot reload)
+side by side — Vite proxies `/api` to the backend:
+
+```sh
+npm run mock                 # backend on :3100 (or `npm start` for a real car)
+npm --prefix client run dev  # Vite dev server on :5173 — open this
+```
+
+`npm run build` compiles the client into `dist/`, which is what `npm start`
+serves.
 
 ## Supported cars & ECUs
 

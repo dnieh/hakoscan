@@ -20,7 +20,9 @@ const requireClient = () => {
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+// The frontend is the built Vite/React app in dist/ (see client/). Run
+// `npm run build` to (re)generate it.
+app.use(express.static(path.join(__dirname, 'dist')));
 
 const handle = (fn) => async (req, res) => {
   try {
@@ -233,7 +235,71 @@ app.get('/api/live', async (req, res) => {
   }
 });
 
+// Raw register watch over SSE: stream arbitrary register addresses as their
+// raw bytes, with no scaling or name lookup. This is the reverse-engineering
+// instrument — for finding which unmapped registers carry a channel by
+// watching which byte moves during a known maneuver (e.g. ATTESA E-TS: rock
+// the car for the G-sensor, throttle for front-torque split, roll for wheel
+// speeds). Like /api/live it borrows the single ECU stream, so opening it
+// stops any running live/flag stream; closing the connection stops it.
+app.get('/api/raw', async (req, res) => {
+  const regs = (req.query.regs || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => parseInt(s, 16))
+    .filter((n) => Number.isInteger(n) && n >= 0 && n <= 0xff);
+  // Drop duplicate addresses but keep first-seen order, so the frame bytes
+  // line up 1:1 with the registers we hand back to the client.
+  const unique = [...new Set(regs)];
+  if (!unique.length) return res.status(400).json({ error: 'No valid registers given' });
+  // One byte per register; the Consult stream budget is 20 bytes per frame.
+  if (unique.length > 20) return res.status(400).json({ error: 'At most 20 registers (Consult stream budget)' });
+  if (!client || !client.connected || clientType !== 'consult')
+    return res.status(400).json({ error: 'Not connected via Consult' });
+
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
+  res.flushHeaders();
+
+  const onFrame = (frame) => {
+    const values = {};
+    unique.forEach((reg, i) => { values[reg] = frame[i]; });
+    res.write(`data: ${JSON.stringify({ t: Date.now(), values })}\n\n`);
+  };
+
+  const onStreamError = (err) => {
+    res.write(`event: error\ndata: ${JSON.stringify({ error: err.message })}\n\n`);
+    res.end();
+  };
+  client.on('streamError', onStreamError);
+
+  req.on('close', async () => {
+    client.off('streamError', onStreamError);
+    await client.stopStream().catch(() => {});
+  });
+
+  try {
+    await client.startStream(unique, onFrame);
+  } catch (err) {
+    onStreamError(err);
+  }
+});
+
 app.get('/api/flag-defs', handle(async () => FLAG_REGISTERS));
+
+// Documented register names, for labelling raw-watch tiles. Keys are decimal
+// strings once JSON-serialized; the client parses them back to numbers.
+app.get('/api/register-names', handle(async () => REGISTER_NAMES));
+
+// SPA fallback: any non-API GET serves the built app shell, so a refresh or a
+// deep link still loads the React app. Static assets above are matched first.
+app.get(/^(?!\/api\/).*/, (_req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
 
 // Start the HTTP server. Returns a promise that resolves once it's listening,
 // so the Electron wrapper knows when it's safe to load the window. Still works

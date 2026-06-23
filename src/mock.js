@@ -93,6 +93,14 @@ class MockConsultClient extends EventEmitter {
       case 0x23: return Math.round(245 + 60 * Math.sin(t / 3)); // RH inj
       case 0x28: return Math.round(30 + 10 * Math.sin(t / 4)); // wastegate %
       case 0x29: return Math.round(90 + 20 * Math.sin(t / 3)); // boost raw
+      // Illustrative "undiscovered" channels at addresses the real engine map
+      // leaves unsupported, so the Raw watch tab has something to find in mock
+      // mode. NOT claimed to be real ATTESA addresses — they stand in for the
+      // kind of signal you'd hunt: a slow front-torque wander and two G-sensor
+      // axes centred on 0x80 (~0 g) that swing as the mock "rocks".
+      case 0xb0: return Math.round(40 + 35 * (1 + Math.sin(t / 6)) / 2); // front torque %
+      case 0xb1: return Math.round(128 + 50 * Math.sin(t / 2)); // lateral G
+      case 0xb2: return Math.round(128 + 40 * Math.cos(t / 2.5)); // longitudinal G
       default: return 0xff;
     }
   }

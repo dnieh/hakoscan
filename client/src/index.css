@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Theme ported from the original public/index.html CSS custom properties into
+ * shadcn's HSL token system, so shadcn components inherit the dark/red look:
+ *   --bg #14171c, --panel #1d2229, --border #2c333d, --text #e8eaed,
+ *   --muted #8a93a0, --accent #e4002b (hakoscan red), --ok #3ecf8e, --warn #f5a623
+ * The app is dark-only; tokens live under .dark and :root alike.
+ */
+@layer base {
+  :root,
+  .dark {
+    --background: 217 17% 9%;
+    --foreground: 216 12% 92%;
+
+    --card: 215 17% 14%;
+    --card-foreground: 216 12% 92%;
+
+    --popover: 215 17% 14%;
+    --popover-foreground: 216 12% 92%;
+
+    /* hakoscan red */
+    --primary: 349 100% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 215 17% 18%;
+    --secondary-foreground: 216 12% 92%;
+
+    --muted: 215 16% 21%;
+    --muted-foreground: 215 10% 58%;
+
+    --accent: 215 17% 18%;
+    --accent-foreground: 216 12% 92%;
+
+    --destructive: 349 100% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 16% 21%;
+    --input: 215 16% 21%;
+    --ring: 349 100% 45%;
+
+    /* Project signal colors */
+    --ok: 153 60% 53%;
+    --warn: 37 91% 55%;
+
+    --radius: 0.625rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font: 15px/1.5 -apple-system, 'Segoe UI', Roboto, sans-serif;
+  }
+}
