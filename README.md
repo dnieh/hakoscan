@@ -13,6 +13,28 @@ npm run mock     # simulated ECU, no car needed
 
 Set `PORT=...` to use a different port.
 
+## Supported cars & ECUs
+
+The app reads the ECU part number on connect and looks it up in
+`src/ecu-db.js`. Nissan part numbers are `23710-` plus a 5-char suffix; the
+table matches exact suffixes first, then the 3-char family prefix. The list is
+community-sourced and intentionally small — add your own as you identify them.
+
+| ECU part number | Engine | Car |
+| --- | --- | --- |
+| 23710-04U00 / 04U01 (family 04U) | RB20DET | R32 Skyline (MT) |
+| 23710-05U… (family) | RB26DETT | R32 GT-R (BNR32) |
+| 23710-21U60 / 21U01 (family 21U) | RB25DET | R33 Skyline |
+| 23710-24U00 / 24U01 (family 24U) | RB26DETT | R33 GT-R (BCNR33) |
+| 23710-0A903 (family 0A9) | RB26DETT | Stagea 260RS Autech (WGNC34) |
+| 23710-53F… / 54F… (family) | KA24DE | S13 240SX (1991–94) |
+| 23710-70F… (family) | KA24DE | S14 240SX (1995) |
+| 23710-72F… (family) | KA24DE | S14 240SX (1996) |
+| 23710-81F… (family) | KA24DE | S14 240SX (1997–98) |
+
+A family (prefix) match is reported as such; an unknown ECU still works for
+live data and fault codes — it's just not named.
+
 ## Usage
 
 1. Plug the Consult cable into the car and your computer, turn the ignition on

@@ -235,8 +235,31 @@ app.get('/api/live', async (req, res) => {
 
 app.get('/api/flag-defs', handle(async () => FLAG_REGISTERS));
 
-app.listen(PORT, () => {
-  console.log(
-    `Nissan Consult dashboard ${MOCK ? '(MOCK MODE) ' : ''}at http://localhost:${PORT}`
-  );
-});
+// Start the HTTP server. Returns a promise that resolves once it's listening,
+// so the Electron wrapper knows when it's safe to load the window. Still works
+// as a plain CLI server (`node server.js`) via the require.main check below.
+function start(port = PORT) {
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, () => {
+      const actualPort = server.address().port;
+      console.log(
+        `Nissan Consult dashboard ${MOCK ? '(MOCK MODE) ' : ''}at http://localhost:${actualPort}`
+      );
+      resolve({ server, port: actualPort });
+    });
+    server.on('error', reject);
+  });
+}
+
+if (require.main === module) {
+  start().catch((err) => {
+    console.error(
+      err.code === 'EADDRINUSE'
+        ? `Port ${PORT} is already in use. Set PORT=... to use another.`
+        : err.message
+    );
+    process.exit(1);
+  });
+}
+
+module.exports = { app, start };
